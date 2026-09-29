@@ -457,7 +457,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void saveZipScoped(Uri source) throws Exception {
+    @android.annotation.TargetApi(29)\n    private void saveZipScoped(Uri source) throws Exception {
         ContentResolver r = getContentResolver();
         Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
         String rel = "Download/EsnexiusManager/", name = "upload.zip";
