@@ -49,6 +49,9 @@ android {
     lint {
         abortOnError true
         checkReleaseBuilds true
+        // This APK intentionally targets Android 9 behavior for the Termux bridge.
+        // It is distributed as a sideloaded manager, not as a Google Play app.
+        disable 'ExpiredTargetSdkVersion'
     }
 
     compileOptions {
