@@ -1,0 +1,16 @@
+node_modules/
+.env
+data/shop.db
+data/shop.db-shm
+data/shop.db-wal
+data/proofs/
+npm-debug.log*
+data/payment-images/
+data/product-images/
+
+# Android manager build files
+android-manager/.gradle/
+android-manager/local.properties
+android-manager/**/build/
+*.apk
+*.aab
