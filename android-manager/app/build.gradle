@@ -10,8 +10,8 @@ android {
         applicationId 'com.esnexius.sitemanager'
         minSdk 28
         targetSdk 28
-        versionCode 3
-        versionName '1.0.2-android9'
+        versionCode 4
+        versionName '2.0.0-android9'
     }
 
     signingConfigs {
@@ -21,12 +21,37 @@ android {
             enableV3Signing false
             enableV4Signing false
         }
+        release {
+            def ks = System.getenv('ESNEXIUS_KEYSTORE_FILE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('ESNEXIUS_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ESNEXIUS_KEY_ALIAS')
+                keyPassword System.getenv('ESNEXIUS_KEY_PASSWORD')
+                enableV1Signing true
+                enableV2Signing true
+            }
+        }
     }
 
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
+        release {
+            minifyEnabled false
+            if (System.getenv('ESNEXIUS_KEYSTORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        // This APK intentionally targets Android 9 behavior for the Termux bridge.
+        // It is distributed as a sideloaded manager, not as a Google Play app.
+        disable 'ExpiredTargetSdkVersion'
     }
 
     compileOptions {

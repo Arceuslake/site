@@ -2,7 +2,11 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'upgrade/**' ]
+    paths:
+      - 'android-manager/**'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
     paths:
       - 'android-manager/**'
       - '.github/workflows/build-apk.yml'
@@ -17,13 +21,17 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      SIGNING_KEYSTORE_B64: ${{ secrets.ESNEXIUS_KEYSTORE_B64 }}
+      SIGNING_STORE_PASSWORD: ${{ secrets.ESNEXIUS_KEYSTORE_PASSWORD }}
+      SIGNING_KEY_ALIAS: ${{ secrets.ESNEXIUS_KEY_ALIAS }}
+      SIGNING_KEY_PASSWORD: ${{ secrets.ESNEXIUS_KEY_PASSWORD }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -41,16 +49,45 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Run Android lint
+        working-directory: android-manager
+        run: gradle --no-daemon :app:lintDebug
+
       - name: Build debug APK
         working-directory: android-manager
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Rename APK
-        run: cp android-manager/app/build/outputs/apk/debug/app-debug.apk EsnexiusSiteManager.apk
+      - name: Prepare optional release signing
+        if: env.SIGNING_KEYSTORE_B64 != ''
+        shell: bash
+        run: |
+          echo "$SIGNING_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/esnexius-release.jks"
+          echo "ESNEXIUS_KEYSTORE_FILE=$RUNNER_TEMP/esnexius-release.jks" >> "$GITHUB_ENV"
+          echo "ESNEXIUS_KEYSTORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "ESNEXIUS_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "ESNEXIUS_KEY_PASSWORD=$SIGNING_KEY_PASSWORD" >> "$GITHUB_ENV"
 
-      - name: Upload APK artifact
+      - name: Build signed release APK
+        if: env.SIGNING_KEYSTORE_B64 != ''
+        working-directory: android-manager
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Package APKs and checksums
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp android-manager/app/build/outputs/apk/debug/app-debug.apk dist/EsnexiusSiteManager-v2-debug.apk
+          if [ -f android-manager/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android-manager/app/build/outputs/apk/release/app-release.apk dist/EsnexiusSiteManager-v2-release.apk
+          fi
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: EsnexiusSiteManager
-          path: EsnexiusSiteManager.apk
+          name: EsnexiusSiteManager-v2
+          path: dist/*
           if-no-files-found: error
+          retention-days: 30
