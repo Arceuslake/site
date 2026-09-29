@@ -65,7 +65,7 @@ public final class Operations {
         }
         validate_zip() {
           [ -f "$ZIP" ] || { echo "No uploaded website ZIP. Tap UPLOAD ZIP first." >&2; exit 48; }
-          bad=$(unzip -Z1 "$ZIP" | grep -E '(^/|(^|/)\.\.(/|$)|(^|/)\.git(/|$))' || true)
+          bad=$(unzip -Z1 "$ZIP" | grep -E '(^/|(^|/)[.][.](/|$)|(^|/)[.]git(/|$))' || true)
           [ -z "$bad" ] || { echo "Unsafe ZIP paths detected." >&2; exit 49; }
           entries=$(unzip -Z1 "$ZIP" | wc -l | tr -d ' ')
           [ "$entries" -le 5000 ] || { echo "ZIP contains too many files." >&2; exit 52; }
