@@ -17,7 +17,7 @@ import java.util.*;
 
 public class MainActivity extends Activity {
     public static final String ACTION_COMMAND_RESULT = "com.esnexius.sitemanager.COMMAND_RESULT";
-    private static final int REQ_TERMUX = 1001, REQ_ZIP = 1002;
+    private static final int REQ_TERMUX = 1001, REQ_ZIP = 1002, REQ_STORAGE = 1003;
     private final Map<String,Button> buttons = new HashMap<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView termux, website, state, log;
@@ -104,7 +104,7 @@ public class MainActivity extends Activity {
     private Button action(String key, String text, String script) {
         Button b = base(text);
         buttons.put(key,b);
-        if ("upload".equals(key)) b.setOnClickListener(v -> chooseZip());
+        if ("upload".equals(key)) b.setOnClickListener(v -> beginUpload());
         else b.setOnClickListener(v -> run(key, script));
         return b;
     }
@@ -169,6 +169,15 @@ public class MainActivity extends Activity {
         else setPill(website,"Website: not installed","#9B3D3D");
     }
 
+    private void beginUpload() {
+        if (Build.VERSION.SDK_INT <= 28 &&
+                checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
+            return;
+        }
+        chooseZip();
+    }
+
     private void chooseZip() {
         Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
@@ -191,6 +200,25 @@ public class MainActivity extends Activity {
     }
 
     private void saveZip(Uri source) throws Exception {
+        if (Build.VERSION.SDK_INT <= 28) {
+            saveZipLegacy(source);
+        } else {
+            saveZipScoped(source);
+        }
+    }
+
+    private void saveZipLegacy(Uri source) throws Exception {
+        File downloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+        File dir = new File(downloads, "EsnexiusManager");
+        if (!dir.exists() && !dir.mkdirs()) throw new IOException("Cannot create Downloads/EsnexiusManager");
+        File dst = new File(dir, "upload.zip");
+        try(InputStream in=getContentResolver().openInputStream(source); OutputStream out=new FileOutputStream(dst,false)) {
+            if(in==null) throw new IOException("Cannot open selected ZIP");
+            copy(in,out);
+        }
+    }
+
+    private void saveZipScoped(Uri source) throws Exception {
         ContentResolver r=getContentResolver();
         Uri collection=MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
         String rel="Download/EsnexiusManager/", name="upload.zip";
@@ -204,9 +232,13 @@ public class MainActivity extends Activity {
         Uri dst=r.insert(collection,v); if(dst==null) throw new IOException("Cannot create upload.zip");
         try(InputStream in=r.openInputStream(source); OutputStream out=r.openOutputStream(dst,"w")) {
             if(in==null||out==null) throw new IOException("Cannot open ZIP");
-            byte[] buf=new byte[65536]; int n; while((n=in.read(buf))!=-1) out.write(buf,0,n);
+            copy(in,out);
         }
         ContentValues done=new ContentValues(); done.put(MediaStore.MediaColumns.IS_PENDING,0); r.update(dst,done,null,null);
+    }
+
+    private void copy(InputStream in, OutputStream out) throws IOException {
+        byte[] buf=new byte[65536]; int n; while((n=in.read(buf))!=-1) out.write(buf,0,n);
     }
 
     private void setupTermux() {
@@ -231,6 +263,7 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int req,String[] p,int[] g) {
         super.onRequestPermissionsResult(req,p,g);
         if(req==REQ_TERMUX) refreshLocalTermux();
+        if(req==REQ_STORAGE && g.length>0 && g[0]==PackageManager.PERMISSION_GRANTED) chooseZip();
     }
 
     private LinearLayout column(){ LinearLayout l=new LinearLayout(this); l.setOrientation(LinearLayout.VERTICAL); return l; }
