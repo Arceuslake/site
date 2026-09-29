@@ -16,6 +16,7 @@ import java.io.*;
 import java.util.*;
 
 public class MainActivity extends Activity {
+    // Android 9 (API 28) compatible upload path is handled below.
     public static final String ACTION_COMMAND_RESULT = "com.esnexius.sitemanager.COMMAND_RESULT";
     private static final int REQ_TERMUX = 1001, REQ_ZIP = 1002, REQ_STORAGE = 1003;
     private final Map<String,Button> buttons = new HashMap<>();
